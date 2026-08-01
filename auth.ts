@@ -2,11 +2,13 @@ import NextAuth from "next-auth";
 import type { NextAuthConfig } from "next-auth";
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
 import connectDB from "@/lib/mongodb";
+import clientPromise from "@/lib/mongodb-client";
 import { User } from "@/lib/models";
 import nodemailer from "nodemailer";
 
 // Simple custom email transport strategy or standard resend mock
 export const authConfig: NextAuthConfig = {
+  adapter: MongoDBAdapter(clientPromise),
   providers: [
     {
       id: "email",
