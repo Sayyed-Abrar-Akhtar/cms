@@ -16,9 +16,53 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Authentication & Environment Variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+This CMS uses Auth.js (NextAuth v5) with a passwordless email (magic link) sign-in strategy. An official `@auth/mongodb-adapter` is utilized to persist verification tokens in the database.
+
+The following environment variables must be configured in `.env.local` for the application to function correctly:
+
+```env
+# MongoDB Connection URI
+MONGODB_URI="mongodb://127.0.0.1:27017/customer-cms"
+
+# A secure secret used to sign NextAuth sessions and cookies.
+# (Generate one using: `openssl rand -hex 32`)
+AUTH_SECRET="8f828a55ef88da1e8efee7278297b83c"
+
+# The base URL of the running server.
+AUTH_URL="http://localhost:3000"
+
+# Email Provider Configuration
+# Set to "console" to log magic links directly to the terminal for debugging/development.
+# Set to an SMTP connection URI (or configure nodemailer credentials) for live mailers.
+EMAIL_SERVER="console"
+EMAIL_FROM="noreply@cms.local"
+
+# Comma-separated list of whitelisted admin email addresses.
+# Any login from these emails will be automatically upgraded to "admin".
+ADMIN_EMAILS="admin@cms.local"
+
+# Pepper for encrypting API Keys
+API_KEY_PEPPER="d9f7a78efea123490cf8"
+```
+
+### Verifying Email Configuration
+
+To verify that the email provider is correctly configured:
+1. Fire up the development server using `pnpm dev`.
+2. Navigate to `http://localhost:3000/login`.
+3. Submit your email address.
+4. If `EMAIL_SERVER` is configured as `"console"`, check your terminal/server logs for a block that outputs:
+   ```text
+   ========================================
+   MAGIC LINK SENT TO: <your-email>
+   URL: http://localhost:3000/api/auth/callback/email?...
+   ========================================
+   ```
+5. If `EMAIL_SERVER` is configured with SMTP, check your corresponding mail client or spam/inbox folders.
+
+---
 
 ## Learn More
 
