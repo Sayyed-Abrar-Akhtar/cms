@@ -66,8 +66,11 @@ export const authConfig: NextAuthConfig = {
           }
         } else if (provider.server && typeof provider.server === "object") {
           const sObj = provider.server as any;
+          const isSecure = sObj.port === 465 || sObj.secure === true;
+
           transportOptions = {
             ...sObj,
+            secure: isSecure,
             tls: {
               rejectUnauthorized: process.env.NODE_ENV === "production",
               ...sObj.tls
@@ -75,11 +78,15 @@ export const authConfig: NextAuthConfig = {
           };
           sanitizedServer = JSON.stringify({
             ...sObj,
+            secure: isSecure,
             auth: sObj.auth ? { ...sObj.auth, pass: "*****" } : undefined
           });
         }
 
-        console.log(`[auth] Initializing nodemailer transport with config: ${sanitizedServer}`);
+        console.log(`[auth] Initializing nodemailer transport with options:`, {
+          ...transportOptions,
+          auth: transportOptions?.auth ? { ...transportOptions.auth, pass: "*****" } : undefined
+        });
 
         try {
           const transport = nodemailer.createTransport(transportOptions);
@@ -111,9 +118,11 @@ export const authConfig: NextAuthConfig = {
           console.log(`[auth] Email successfully sent to ${email}`);
         } catch (error: any) {
           console.error(`[auth] Error in sendVerificationRequest for ${email}:`, error);
-          if (error.message && error.message.includes("socket close")) {
+          if (error.message && error.message.toLowerCase().includes("socket close")) {
             console.error(
-              `[auth-diagnostic] NodeMailer socket closed unexpectedly. This typically happens due to a TLS/secure port configuration mismatch (e.g. connecting to port 465 SMTPS using the unsecure 'smtp://' protocol instead of 'smtps://', or vice versa). Please ensure that you are using 'smtps://' for port 465 (secure: true) or 'smtp://' with port 587 (secure: false with STARTTLS upgrade).`
+              `[auth-diagnostic] NodeMailer socket closed unexpectedly. This typically happens due to two major configuration issues:\n` +
+              `1. TLS/Secure Port Mismatch: Connecting to port 465 without 'secure: true' (or vice versa on port 587). Ensure you are using 'smtps://' for port 465 or 'smtp://' with port 587.\n` +
+              `2. Unverified/Unauthorized Sending Domain: You are likely sending from an unverified address (e.g., default '${provider.from}'). If using services like Resend, SendGrid, or Mailgun, the 'from' address MUST match a verified domain in your provider dashboard, otherwise the server abruptly drops the connection.`
             );
           }
           throw error;
