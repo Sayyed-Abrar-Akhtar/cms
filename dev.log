@@ -1,0 +1,29 @@
+
+> customer-cms@0.1.0 dev /app
+> next dev
+
+▲ Next.js 16.2.12 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.0.2:3000
+- Environments: .env.local
+✓ Ready in 880ms
+
+ GET /api/auth/csrf 200 in 2.5s (next.js: 2.5s, application-code: 57ms)
+[auth-debug] code: adapter_getUserByEmail { args: [ 'admin@cms.local' ] }
+[auth] sendVerificationRequest invoked for: admin@cms.local
+
+========================================
+MAGIC LINK SENT TO: admin@cms.local
+URL: http://localhost:3000/api/auth/callback/email?callbackUrl=http%3A%2F%2Flocalhost%3A3000&token=c27c6854a5c65aa958f77463fb9de8143783309434524393a74d8d2f9bb5820a&email=admin%40cms.local
+========================================
+
+[auth-debug] code: adapter_createVerificationToken {
+  args: [
+    {
+      identifier: 'admin@cms.local',
+      token: '7a97175a7786810f50f6768130fb283b97cf1ef73f0ea582062fff3a52f5e57d',
+      expires: 2026-08-03T06:00:47.123Z
+    }
+  ]
+}
+ POST /api/auth/signin/email 302 in 65ms (next.js: 21ms, application-code: 44ms)

@@ -34,10 +34,15 @@ AUTH_SECRET="8f828a55ef88da1e8efee7278297b83c"
 AUTH_URL="http://localhost:3000"
 
 # Email Provider Configuration
-# Set to "console" to log magic links directly to the terminal for debugging/development.
-# Set to an SMTP connection URI (or configure nodemailer credentials) for live mailers.
+# There are three supported modes:
+# 1. Console (Default) - EMAIL_SERVER="console" or undefined. This logs all magic links directly to the console for development.
+# 2. Resend API - Configure RESEND_API_KEY with your Resend key (starts with "re_"). The app uses direct high-performance fetch requests.
+# 3. SMTP Transport - EMAIL_SERVER="smtp://username:password@smtp.example.com:587". Fallback SMTP mailer.
 EMAIL_SERVER="console"
 EMAIL_FROM="noreply@cms.local"
+
+# Or configure Resend API Key directly:
+RESEND_API_KEY="re_your_api_key_here"
 
 # Comma-separated list of whitelisted admin email addresses.
 # Any login from these emails will be automatically upgraded to "admin".
@@ -60,7 +65,7 @@ To verify that the email provider is correctly configured:
    URL: http://localhost:3000/api/auth/callback/email?...
    ========================================
    ```
-5. If `EMAIL_SERVER` is configured with SMTP, check your corresponding mail client or spam/inbox folders.
+5. If using Resend or standard SMTP, confirm that the magic link is delivered to your inbox, and verify that the `from` email address is fully verified on your email provider's dashboard.
 
 ---
 

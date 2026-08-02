@@ -35,6 +35,56 @@ export const authConfig: NextAuthConfig = {
           return;
         }
 
+        const resendKey = process.env.RESEND_API_KEY || (process.env.EMAIL_SERVER?.startsWith("re_") ? process.env.EMAIL_SERVER : null);
+        let fromEmail = provider.from || "noreply@cms.local";
+
+        if (resendKey) {
+          if (fromEmail === "noreply@cms.local" || fromEmail.includes("cms.local")) {
+            fromEmail = "onboarding@resend.dev";
+            console.log(`[auth] Detected default local 'from' address with Resend. Overriding to 'onboarding@resend.dev' for sandbox compatibility.`);
+          }
+
+          console.log(`[auth] sendVerificationRequest using Resend API (Bearer re_***) to ${email}`);
+          try {
+            const res = await fetch("https://api.resend.com/emails", {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${resendKey}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                from: fromEmail,
+                to: email,
+                subject: `Sign in to CMS Terminal (${new URL(url).host})`,
+                html: `
+                  <div style="background-color: #0a0a0a; color: #ededed; font-family: monospace; padding: 24px; border: 1px solid rgba(255,255,255,0.1); max-width: 600px; margin: auto;">
+                    <h2 style="color: #22c55e;">$ cat magic-link.txt</h2>
+                    <p>You requested a magic link login to CMS Terminal.</p>
+                    <p style="margin: 24px 0;">
+                      <a href="${url}" style="background-color: #22c55e; color: #000; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 4px;">
+                        $ login-now --url
+                      </a>
+                    </p>
+                    <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 24px 0;" />
+                    <p style="font-size: 12px; color: #6b7280;">If you didn't request this, you can safely ignore this email.</p>
+                  </div>
+                `,
+              }),
+            });
+
+            if (!res.ok) {
+              const errBody = await res.text();
+              throw new Error(`Resend API error: ${res.status} ${errBody}`);
+            }
+            console.log(`[auth] Email successfully sent to ${email} via Resend API`);
+            return;
+          } catch (error: any) {
+            console.error(`[auth] Error sending via Resend API:`, error);
+            throw error;
+          }
+        }
+
+        // Fallback to standard nodemailer SMTP transport
         let transportOptions: any = provider.server;
         let sanitizedServer = "unknown";
 
@@ -51,7 +101,6 @@ export const authConfig: NextAuthConfig = {
                 user: decodeURIComponent(parsed.username),
                 pass: decodeURIComponent(parsed.password),
               },
-              // Allow some tolerance for local/self-signed certificates if applicable
               tls: {
                 rejectUnauthorized: process.env.NODE_ENV === "production",
               }
@@ -93,7 +142,7 @@ export const authConfig: NextAuthConfig = {
           const { host } = new URL(url);
           const result = await transport.sendMail({
             to: email,
-            from: provider.from,
+            from: fromEmail,
             subject: `Sign in to CMS Terminal (${host})`,
             text: `Sign in to your account by clicking this link:\n\n${url}\n\n`,
             html: `
@@ -122,7 +171,7 @@ export const authConfig: NextAuthConfig = {
             console.error(
               `[auth-diagnostic] NodeMailer socket closed unexpectedly. This typically happens due to two major configuration issues:\n` +
               `1. TLS/Secure Port Mismatch: Connecting to port 465 without 'secure: true' (or vice versa on port 587). Ensure you are using 'smtps://' for port 465 or 'smtp://' with port 587.\n` +
-              `2. Unverified/Unauthorized Sending Domain: You are likely sending from an unverified address (e.g., default '${provider.from}'). If using services like Resend, SendGrid, or Mailgun, the 'from' address MUST match a verified domain in your provider dashboard, otherwise the server abruptly drops the connection.`
+              `2. Unverified/Unauthorized Sending Domain: You are likely sending from an unverified address (e.g., default '${fromEmail}'). If using services like Resend, SendGrid, or Mailgun, the 'from' address MUST match a verified domain in your provider dashboard, otherwise the server abruptly drops the connection.`
             );
           }
           throw error;
