@@ -19,7 +19,7 @@ export default function ClientLoginForm() {
     setSuccess(false);
 
     try {
-      const res = await signIn("email", {
+      const res = await signIn("resend", {
         email: email.trim().toLowerCase(),
         redirect: false,
         callbackUrl: "/",
@@ -30,8 +30,8 @@ export default function ClientLoginForm() {
       } else {
         setSuccess(true);
       }
-    } catch (err: any) {
-      setError(err?.message || "An error occurred during authentication request.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred during authentication request.");
     } finally {
       setLoading(false);
     }
