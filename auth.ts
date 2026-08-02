@@ -35,8 +35,54 @@ export const authConfig: NextAuthConfig = {
           return;
         }
 
+        let transportOptions: any = provider.server;
+        let sanitizedServer = "unknown";
+
+        if (typeof provider.server === "string") {
+          try {
+            const parsed = new URL(provider.server);
+            const isSecure = parsed.protocol === "smtps:" || parsed.port === "465";
+
+            transportOptions = {
+              host: parsed.hostname,
+              port: parsed.port ? parseInt(parsed.port, 10) : (isSecure ? 465 : 587),
+              secure: isSecure,
+              auth: {
+                user: decodeURIComponent(parsed.username),
+                pass: decodeURIComponent(parsed.password),
+              },
+              // Allow some tolerance for local/self-signed certificates if applicable
+              tls: {
+                rejectUnauthorized: process.env.NODE_ENV === "production",
+              }
+            };
+
+            const debugUrl = new URL(provider.server);
+            debugUrl.password = "*****";
+            sanitizedServer = debugUrl.toString();
+          } catch (err) {
+            sanitizedServer = "[unparseable string]";
+            console.warn(`[auth] Failed to parse provider.server string as URL, falling back to default:`, err);
+          }
+        } else if (provider.server && typeof provider.server === "object") {
+          const sObj = provider.server as any;
+          transportOptions = {
+            ...sObj,
+            tls: {
+              rejectUnauthorized: process.env.NODE_ENV === "production",
+              ...sObj.tls
+            }
+          };
+          sanitizedServer = JSON.stringify({
+            ...sObj,
+            auth: sObj.auth ? { ...sObj.auth, pass: "*****" } : undefined
+          });
+        }
+
+        console.log(`[auth] Initializing nodemailer transport with config: ${sanitizedServer}`);
+
         try {
-          const transport = nodemailer.createTransport(provider.server);
+          const transport = nodemailer.createTransport(transportOptions);
           const { host } = new URL(url);
           const result = await transport.sendMail({
             to: email,
@@ -57,13 +103,19 @@ export const authConfig: NextAuthConfig = {
               </div>
             `,
           });
-          const failed = result.rejected.concat(result.pending).filter(Boolean);
+
+          const failed = (result.rejected || []).concat((result as any).pending || []).filter(Boolean);
           if (failed.length) {
             throw new Error(`Email(s) (${failed.join(", ")}) could not be sent`);
           }
           console.log(`[auth] Email successfully sent to ${email}`);
-        } catch (error) {
+        } catch (error: any) {
           console.error(`[auth] Error in sendVerificationRequest for ${email}:`, error);
+          if (error.message && error.message.includes("socket close")) {
+            console.error(
+              `[auth-diagnostic] NodeMailer socket closed unexpectedly. This typically happens due to a TLS/secure port configuration mismatch (e.g. connecting to port 465 SMTPS using the unsecure 'smtp://' protocol instead of 'smtps://', or vice versa). Please ensure that you are using 'smtps://' for port 465 (secure: true) or 'smtp://' with port 587 (secure: false with STARTTLS upgrade).`
+            );
+          }
           throw error;
         }
       },
