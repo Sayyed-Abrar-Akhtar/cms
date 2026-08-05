@@ -35,9 +35,12 @@ AUTH_URL="http://localhost:3000"
 
 # Email Provider Configuration
 # Set to "console" to log magic links directly to the terminal for debugging/development.
-# Set to an SMTP connection URI (or configure nodemailer credentials) for live mailers.
 EMAIL_SERVER="console"
 EMAIL_FROM="noreply@cms.local"
+
+# Set your Resend API Key for live mailers.
+# (If EMAIL_SERVER is not "console" and AUTH_RESEND_KEY is present, Resend will send live magic link emails)
+AUTH_RESEND_KEY="re_123456789"
 
 # Comma-separated list of whitelisted admin email addresses.
 # Any login from these emails will be automatically upgraded to "admin".
@@ -53,14 +56,14 @@ To verify that the email provider is correctly configured:
 1. Fire up the development server using `pnpm dev`.
 2. Navigate to `http://localhost:3000/login`.
 3. Submit your email address.
-4. If `EMAIL_SERVER` is configured as `"console"`, check your terminal/server logs for a block that outputs:
+4. If `EMAIL_SERVER` is configured as `"console"` (or if no Resend API key is set), check your terminal/server logs for a block that outputs:
    ```text
    ========================================
    MAGIC LINK SENT TO: <your-email>
    URL: http://localhost:3000/api/auth/callback/email?...
    ========================================
    ```
-5. If `EMAIL_SERVER` is configured with SMTP, check your corresponding mail client or spam/inbox folders.
+5. If `AUTH_RESEND_KEY` is configured and live, check your corresponding mail client or spam/inbox folders for the email sent via Resend.
 
 ---
 

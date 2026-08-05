@@ -4,7 +4,8 @@ import { MongoDBAdapter } from "@auth/mongodb-adapter";
 import clientPromise from "@/lib/mongodb-client";
 import connectDB from "@/lib/mongodb";
 import { User } from "@/lib/models";
-import nodemailer from "nodemailer";
+import Resend from "next-auth/providers/resend";
+import { Resend as ResendClient } from "resend";
 
 export const authConfig: NextAuthConfig = {
   adapter: MongoDBAdapter(clientPromise, {
@@ -16,18 +17,20 @@ export const authConfig: NextAuthConfig = {
     }
   }),
   providers: [
-    {
-      id: "email",
-      type: "email",
-      name: "Email",
-      server: process.env.EMAIL_SERVER,
+    Resend({
+      apiKey: process.env.AUTH_RESEND_KEY || process.env.RESEND_API_KEY,
       from: process.env.EMAIL_FROM || "noreply@cms.local",
-      maxAge: 24 * 60 * 60, // 24 hours
       async sendVerificationRequest({ identifier: email, url, provider }) {
         console.log(`[auth] sendVerificationRequest invoked for: ${email}`);
 
-        // If EMAIL_SERVER is not set or equals "console", just log it
-        if (!process.env.EMAIL_SERVER || process.env.EMAIL_SERVER === "console") {
+        const apiKey = provider.apiKey;
+        // If EMAIL_SERVER is "console" or apiKey is "console" or apiKey is missing, log the magic link
+        const isConsole =
+          process.env.EMAIL_SERVER === "console" ||
+          apiKey === "console" ||
+          !apiKey;
+
+        if (isConsole) {
           console.log(`\n========================================`);
           console.log(`MAGIC LINK SENT TO: ${email}`);
           console.log(`URL: ${url}`);
@@ -36,11 +39,11 @@ export const authConfig: NextAuthConfig = {
         }
 
         try {
-          const transport = nodemailer.createTransport(provider.server);
+          const resendClient = new ResendClient(apiKey);
           const { host } = new URL(url);
-          const result = await transport.sendMail({
+          const result = await resendClient.emails.send({
             to: email,
-            from: provider.from,
+            from: provider.from || "noreply@cms.local",
             subject: `Sign in to CMS Terminal (${host})`,
             text: `Sign in to your account by clicking this link:\n\n${url}\n\n`,
             html: `
@@ -57,17 +60,18 @@ export const authConfig: NextAuthConfig = {
               </div>
             `,
           });
-          const failed = result.rejected.concat(result.pending).filter(Boolean);
-          if (failed.length) {
-            throw new Error(`Email(s) (${failed.join(", ")}) could not be sent`);
+
+          if (result.error) {
+            throw new Error(`Resend error: ${JSON.stringify(result.error)}`);
           }
-          console.log(`[auth] Email successfully sent to ${email}`);
+
+          console.log(`[auth] Email successfully sent to ${email} via Resend. ID: ${result.data?.id}`);
         } catch (error) {
           console.error(`[auth] Error in sendVerificationRequest for ${email}:`, error);
           throw error;
         }
       },
-    },
+    }),
   ],
   session: {
     strategy: "jwt",
