@@ -32,8 +32,8 @@ declare global {
       EMAIL_SERVER?: string;
       EMAIL_FROM?: string;
       ADMIN_EMAILS?: string;
-      NEXT_PUBLIC_MAGIC_PUBLISHABLE_KEY?: string;
-      MAGIC_SECRET_KEY?: string;
+      AUTH_RESEND_KEY?: string;
+      RESEND_API_KEY?: string;
     }
   }
 }

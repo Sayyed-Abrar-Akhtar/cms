@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { Terminal } from "lucide-react";
-import { magic } from "@/lib/magic";
 
 export default function ClientLoginForm() {
   const [email, setEmail] = useState("");
@@ -20,24 +19,7 @@ export default function ClientLoginForm() {
     setSuccess(false);
 
     try {
-      let didToken = "";
-
-      // Check if magic client is initialized
-      if (magic) {
-        const token = await magic.auth.loginWithMagicLink({
-          email: email.trim().toLowerCase(),
-        });
-        if (token) {
-          didToken = token;
-        } else {
-          throw new Error("Failed to retrieve DID token from Magic.");
-        }
-      } else {
-        console.warn("[ClientLoginForm] Magic client not initialized. Falling back to simulated login.");
-      }
-
-      const res = await signIn("credentials", {
-        didToken,
+      const res = await signIn("resend", {
         email: email.trim().toLowerCase(),
         redirect: false,
         callbackUrl: "/",

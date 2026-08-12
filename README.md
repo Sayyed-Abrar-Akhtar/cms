@@ -33,14 +33,14 @@ AUTH_SECRET="8f828a55ef88da1e8efee7278297b83c"
 # The base URL of the running server.
 AUTH_URL="http://localhost:3000"
 
-# Authentication Provider Configuration (Magic.link)
-# Set to "console" to bypass Magic link validation and log authentication directly to the terminal for debugging/development.
+# Email Provider Configuration
+# Set to "console" to log magic links directly to the terminal for debugging/development.
 EMAIL_SERVER="console"
+EMAIL_FROM="noreply@cms.local"
 
-# Your Magic.link Publishable and Secret Keys
-# (Set both of these for live Magic link authentication)
-NEXT_PUBLIC_MAGIC_PUBLISHABLE_KEY="pk_live_1234567890"
-MAGIC_SECRET_KEY="sk_live_1234567890"
+# Set your Resend API Key for live mailers.
+# (If EMAIL_SERVER is not "console" and AUTH_RESEND_KEY is present, Resend will send live magic link emails)
+AUTH_RESEND_KEY="re_123456789"
 
 # Comma-separated list of whitelisted admin email addresses.
 # Any login from these emails will be automatically upgraded to "admin".
@@ -50,19 +50,20 @@ ADMIN_EMAILS="admin@cms.local"
 API_KEY_PEPPER="d9f7a78efea123490cf8"
 ```
 
-### Verifying Authentication Configuration
+### Verifying Email Configuration
 
-To verify that the authentication provider is correctly configured:
+To verify that the email provider is correctly configured:
 1. Fire up the development server using `pnpm dev`.
 2. Navigate to `http://localhost:3000/login`.
 3. Submit your email address.
-4. If `EMAIL_SERVER` is configured as `"console"` (or if no Magic secret key is set), check your terminal/server logs for a block that outputs:
+4. If `EMAIL_SERVER` is configured as `"console"` (or if no Resend API key is set), check your terminal/server logs for a block that outputs:
    ```text
    ========================================
-   CONSOLE BYPASS LOGIN TRIGGERED FOR: <your-email>
+   MAGIC LINK SENT TO: <your-email>
+   URL: http://localhost:3000/api/auth/callback/email?...
    ========================================
    ```
-5. If `NEXT_PUBLIC_MAGIC_PUBLISHABLE_KEY` and `MAGIC_SECRET_KEY` are configured and live, you will experience the live Magic.link authentication flow.
+5. If `AUTH_RESEND_KEY` is configured and live, check your corresponding mail client or spam/inbox folders for the email sent via Resend.
 
 ---
 
