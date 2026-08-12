@@ -4,8 +4,8 @@ import { MongoDBAdapter } from "@auth/mongodb-adapter";
 import clientPromise from "@/lib/mongodb-client";
 import connectDB from "@/lib/mongodb";
 import { User } from "@/lib/models";
-import Resend from "next-auth/providers/resend";
-import { Resend as ResendClient } from "resend";
+import Credentials from "next-auth/providers/credentials";
+import { Magic as MagicAdmin } from "@magic-sdk/admin";
 
 export const authConfig: NextAuthConfig = {
   adapter: MongoDBAdapter(clientPromise, {
@@ -17,57 +17,56 @@ export const authConfig: NextAuthConfig = {
     }
   }),
   providers: [
-    Resend({
-      apiKey: process.env.AUTH_RESEND_KEY || process.env.RESEND_API_KEY,
-      from: process.env.EMAIL_FROM || "noreply@cms.local",
-      async sendVerificationRequest({ identifier: email, url, provider }) {
-        console.log(`[auth] sendVerificationRequest invoked for: ${email}`);
+    Credentials({
+      name: "Magic.link",
+      credentials: {
+        didToken: { label: "DID Token", type: "text" },
+        email: { label: "Email", type: "text" },
+      },
+      async authorize(credentials) {
+        const didToken = credentials?.didToken as string | undefined;
+        const email = credentials?.email as string | undefined;
 
-        const apiKey = provider.apiKey;
-        // If EMAIL_SERVER is "console" or apiKey is "console" or apiKey is missing, log the magic link
+        console.log(`[auth] authorize callback invoked. email: ${email}`);
+
+        const secretKey = process.env.MAGIC_SECRET_KEY;
         const isConsole =
           process.env.EMAIL_SERVER === "console" ||
-          apiKey === "console" ||
-          !apiKey;
+          secretKey === "console" ||
+          !secretKey;
 
         if (isConsole) {
           console.log(`\n========================================`);
-          console.log(`MAGIC LINK SENT TO: ${email}`);
-          console.log(`URL: ${url}`);
+          console.log(`CONSOLE BYPASS LOGIN TRIGGERED FOR: ${email}`);
           console.log(`========================================\n`);
-          return;
+          if (!email) {
+            throw new Error("Email is required for console bypass login.");
+          }
+          return { email: email.toLowerCase().trim() };
+        }
+
+        if (!didToken) {
+          throw new Error("No Magic DID token provided.");
         }
 
         try {
-          const resendClient = new ResendClient(apiKey);
-          const { host } = new URL(url);
-          const result = await resendClient.emails.send({
-            to: email,
-            from: provider.from || "noreply@cms.local",
-            subject: `Sign in to CMS Terminal (${host})`,
-            text: `Sign in to your account by clicking this link:\n\n${url}\n\n`,
-            html: `
-              <div style="background-color: #0a0a0a; color: #ededed; font-family: monospace; padding: 24px; border: 1px solid rgba(255,255,255,0.1); max-width: 600px; margin: auto;">
-                <h2 style="color: #22c55e;">$ cat magic-link.txt</h2>
-                <p>You requested a magic link login to CMS Terminal.</p>
-                <p style="margin: 24px 0;">
-                  <a href="${url}" style="background-color: #22c55e; color: #000; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 4px;">
-                    $ login-now --url
-                  </a>
-                </p>
-                <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 24px 0;" />
-                <p style="font-size: 12px; color: #6b7280;">If you didn't request this, you can safely ignore this email.</p>
-              </div>
-            `,
-          });
+          const mAdmin = new MagicAdmin(secretKey);
+          await mAdmin.token.validate(didToken);
+          const metadata = await mAdmin.users.getMetadataByToken(didToken);
 
-          if (result.error) {
-            throw new Error(`Resend error: ${JSON.stringify(result.error)}`);
+          if (!metadata.email) {
+            throw new Error("Failed to retrieve user email from Magic metadata.");
           }
 
-          console.log(`[auth] Email successfully sent to ${email} via Resend. ID: ${result.data?.id}`);
+          const resolvedEmail = metadata.email.toLowerCase().trim();
+          if (email && email.toLowerCase().trim() !== resolvedEmail) {
+            throw new Error("Submitted email does not match authenticated Magic email.");
+          }
+
+          console.log(`[auth] Magic DID token successfully validated for: ${resolvedEmail}`);
+          return { email: resolvedEmail };
         } catch (error) {
-          console.error(`[auth] Error in sendVerificationRequest for ${email}:`, error);
+          console.error("[auth] Error in Magic validation:", error);
           throw error;
         }
       },
